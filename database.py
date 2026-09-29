@@ -44,6 +44,7 @@ def init_db():
             documento_numero TEXT NOT NULL,
             nombre_apellido TEXT NOT NULL,
             tipo_documento TEXT DEFAULT 'Cédula de Identidad',
+            pais_nacionalidad TEXT DEFAULT 'Desconocido',
             fecha_hora TEXT NOT NULL,
             file_url TEXT NOT NULL,
             file_name TEXT,
@@ -59,6 +60,11 @@ def init_db():
     
     try:
         cursor.execute("ALTER TABLE kyc_records ADD COLUMN uploaded_by TEXT DEFAULT 'admin'")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cursor.execute("ALTER TABLE kyc_records ADD COLUMN pais_nacionalidad TEXT DEFAULT 'Desconocido'")
     except sqlite3.OperationalError:
         pass
     
@@ -196,19 +202,21 @@ def update_last_login(user_id):
 # KYC Records Functions
 def save_record(documento_numero, nombre_apellido, tipo_documento, fecha_hora, 
                 file_url, file_name="", file_cloud_provider="local", file_public_id="", 
-                ocr_raw_text="", estado="Registrado", notas="", uploaded_by="admin"):
+                ocr_raw_text="", estado="Registrado", notas="", uploaded_by="admin",
+                pais_nacionalidad="Desconocido"):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
         INSERT INTO kyc_records (
-            documento_numero, nombre_apellido, tipo_documento, fecha_hora,
+            documento_numero, nombre_apellido, tipo_documento, pais_nacionalidad, fecha_hora,
             file_url, file_name, file_cloud_provider, file_public_id,
             ocr_raw_text, estado, notas, uploaded_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         documento_numero.strip(),
         nombre_apellido.strip().upper(),
         tipo_documento.strip(),
+        pais_nacionalidad.strip() if pais_nacionalidad else "Desconocido",
         fecha_hora,
         file_url,
         file_name,
