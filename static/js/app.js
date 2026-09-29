@@ -27,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const resNombre = document.getElementById('res-nombre');
   const resPais = document.getElementById('res-pais');
   const resTipo = document.getElementById('res-tipo');
+  const resNotas = document.getElementById('res-notas');
   const resFechaHora = document.getElementById('res-fecha-hora');
   const resProvider = document.getElementById('res-provider');
   const resCloudLink = document.getElementById('res-cloud-link');
@@ -223,15 +224,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const formData = new FormData();
     formData.append('file', currentFile);
-    formData.append('auto_save', checkAutoSave.checked ? 'true' : 'false');
-    formData.append('tipo_documento', inputTipoDoc.value);
-    formData.append('notas', inputNotas.value);
+    formData.append('auto_save', checkAutoSave && checkAutoSave.checked ? 'true' : 'false');
+    formData.append('tipo_documento', inputTipoDoc ? inputTipoDoc.value : '');
+    formData.append('notas', inputNotas ? inputNotas.value : '');
     if (clientOcrText) {
       formData.append('client_ocr_text', clientOcrText);
     }
 
     try {
-      processingText.textContent = "Subiendo archivo y registrando en la nube...";
+      processingText.textContent = "Analizando documento y leyendo datos con OCR...";
       const res = await fetch('/api/scan-and-upload', {
         method: 'POST',
         body: formData
@@ -245,6 +246,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       lastUploadedData = data;
       renderExtractedData(data);
+      if (btnManualConfirm) {
+        btnManualConfirm.disabled = false;
+        btnManualConfirm.innerHTML = '<i class="fa-solid fa-circle-check text-lg"></i><span>2. Confirmar y Registrar en la Base de Datos</span>';
+      }
       loadStats();
 
     } catch (err) {
@@ -261,7 +266,8 @@ document.addEventListener('DOMContentLoaded', () => {
     resCedula.value = data.documento_numero || '';
     resNombre.value = data.nombre_apellido || '';
     if (resPais) resPais.value = data.pais_nacionalidad || 'Desconocido';
-    resTipo.value = data.tipo_documento || 'Cédula de Identidad';
+    if (resTipo) resTipo.value = data.tipo_documento || 'Cédula de Identidad';
+    if (resNotas && !resNotas.value && inputNotas) resNotas.value = inputNotas.value;
     resFechaHora.value = data.fecha_hora || '';
     resProvider.value = (data.cloud_provider || 'local').toUpperCase();
     resRawOcr.textContent = data.ocr_raw_text || '(Sin texto detectado)';
@@ -273,62 +279,95 @@ document.addEventListener('DOMContentLoaded', () => {
       resCloudLink.classList.add('hidden');
     }
 
-    // Display times registered banner
+    // Display banner
     repeatBanner.classList.remove('hidden');
-    const times = data.times_registered || 1;
+    const times = data.times_registered || 0;
     
-    if (times > 1) {
-      repeatBanner.className = 'mb-5 p-4 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-200';
+    // If not yet saved in database (waiting for user review/edit):
+    if (!data.record_id) {
+      repeatBanner.className = 'mb-5 p-4 rounded-xl border border-indigo-500/40 bg-indigo-500/10 text-indigo-200';
       repeatBanner.innerHTML = `
         <div class="flex items-start space-x-3">
-          <i class="fa-solid fa-triangle-exclamation text-amber-400 text-xl mt-0.5"></i>
+          <i class="fa-solid fa-pen-to-square text-indigo-400 text-xl mt-0.5"></i>
           <div>
-            <h4 class="font-bold text-amber-300">¡Alerta de Registro Recurrente!</h4>
-            <p class="text-xs mt-1">Este documento (Cédula: <b>${data.documento_numero}</b>) ya ha sido registrado un total de <b class="text-base text-amber-200">${times} VECES</b> en el sistema.</p>
-            <button type="button" onclick="quickCheckClient('${data.documento_numero}', '${data.nombre_apellido}')" class="mt-2 text-xs font-semibold underline text-amber-300 hover:text-amber-100 flex items-center space-x-1">
-              <span>Ver historial de registros de esta cédula</span>
-              <i class="fa-solid fa-arrow-right"></i>
-            </button>
+            <h4 class="font-bold text-white text-sm">Paso 2: Revisa y Corrige el Nombre y Apellido</h4>
+            <p class="text-xs mt-1 text-slate-300">
+              El OCR ha detectado los datos. Si hay algún error en el <b>nombre o cédula</b>, corrígelo en los campos de abajo y luego haz clic en <b>Confirmar y Registrar</b>.
+              ${times > 0 ? `<br><span class="text-amber-300 font-semibold mt-1 inline-block"><i class="fa-solid fa-repeat mr-1"></i>Atención: Esta cédula ya fue registrada ${times} vez/veces anteriormente.</span>` : '<br><span class="text-emerald-300 font-semibold mt-1 inline-block"><i class="fa-solid fa-user-check mr-1"></i>Cliente nuevo (sin registros previos).</span>'}
+            </p>
           </div>
         </div>
       `;
+      // Auto-focus on name field so user can edit instantly
+      setTimeout(() => {
+        if (resNombre) {
+          resNombre.focus();
+        }
+      }, 150);
     } else {
-      repeatBanner.className = 'mb-5 p-4 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-200';
-      repeatBanner.innerHTML = `
-        <div class="flex items-start space-x-3">
-          <i class="fa-solid fa-circle-check text-emerald-400 text-xl mt-0.5"></i>
-          <div>
-            <h4 class="font-bold text-emerald-300">¡Nuevo Registro Exitoso!</h4>
-            <p class="text-xs mt-1">Primer registro en el sistema para esta cédula. Fecha y hora registrada: <span class="font-mono">${data.fecha_hora}</span>.</p>
+      // Saved automatically
+      if (times > 1) {
+        repeatBanner.className = 'mb-5 p-4 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-200';
+        repeatBanner.innerHTML = `
+          <div class="flex items-start space-x-3">
+            <i class="fa-solid fa-triangle-exclamation text-amber-400 text-xl mt-0.5"></i>
+            <div>
+              <h4 class="font-bold text-amber-300">¡Registro Recurrente Guardado!</h4>
+              <p class="text-xs mt-1">Este documento (Cédula: <b>${data.documento_numero}</b>) ya ha sido registrado un total de <b class="text-base text-amber-200">${times} VECES</b> en el sistema.</p>
+              <button type="button" onclick="quickCheckClient('${data.documento_numero}', '${data.nombre_apellido}')" class="mt-2 text-xs font-semibold underline text-amber-300 hover:text-amber-100 flex items-center space-x-1">
+                <span>Ver historial de registros de esta cédula</span>
+                <i class="fa-solid fa-arrow-right"></i>
+              </button>
+            </div>
           </div>
-        </div>
-      `;
-    }
-
-    if (!checkAutoSave.checked) {
-      boxConfirmUpdate.classList.remove('hidden');
-    } else {
-      boxConfirmUpdate.classList.add('hidden');
+        `;
+      } else {
+        repeatBanner.className = 'mb-5 p-4 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-200';
+        repeatBanner.innerHTML = `
+          <div class="flex items-start space-x-3">
+            <i class="fa-solid fa-circle-check text-emerald-400 text-xl mt-0.5"></i>
+            <div>
+              <h4 class="font-bold text-emerald-300">¡Registro Guardado Exitosamente!</h4>
+              <p class="text-xs mt-1">Primer registro en el sistema para esta cédula. Fecha y hora: <span class="font-mono">${data.fecha_hora}</span>.</p>
+            </div>
+          </div>
+        `;
+      }
     }
   }
 
-  // 4. Manual Confirm / Edit
+  // 4. Manual Confirm / Edit (Step 2: Save to database)
   if (btnManualConfirm) {
     btnManualConfirm.addEventListener('click', async () => {
-      if (!lastUploadedData) return;
+      if (!lastUploadedData) {
+        alert('Por favor primero cargue y escanee una cédula o pasaporte en el Paso 1.');
+        return;
+      }
+
+      const nombreEditado = resNombre.value.trim();
+      const cedulaEditada = resCedula.value.trim();
+
+      if (!nombreEditado && !cedulaEditada) {
+        alert('Debe especificar al menos el Nombre y Apellido o el Número de Documento.');
+        resNombre.focus();
+        return;
+      }
 
       const payload = {
-        documento_numero: resCedula.value.trim(),
-        nombre_apellido: resNombre.value.trim(),
+        documento_numero: cedulaEditada || 'S/N',
+        nombre_apellido: nombreEditado || 'DESCONOCIDO',
         pais_nacionalidad: resPais ? resPais.value.trim() : 'Desconocido',
-        tipo_documento: resTipo.value.trim(),
+        tipo_documento: resTipo ? resTipo.value.trim() : 'Cédula de Identidad',
         file_url: lastUploadedData.file_url,
         file_name: lastUploadedData.file_name,
         cloud_provider: lastUploadedData.cloud_provider,
         public_id: lastUploadedData.public_id,
         ocr_raw_text: lastUploadedData.ocr_raw_text,
-        notas: inputNotas.value.trim()
+        notas: (resNotas ? resNotas.value.trim() : '') || (inputNotas ? inputNotas.value.trim() : '')
       };
+
+      btnManualConfirm.disabled = true;
+      btnManualConfirm.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-base"></i><span>Guardando en base de datos...</span>';
 
       try {
         const res = await fetch('/api/confirm-save', {
@@ -338,14 +377,36 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const data = await res.json();
         if (data.success) {
-          alert(`¡Registro guardado exitosamente! Ha sido registrado ${data.times_registered} veces.`);
-          boxConfirmUpdate.classList.add('hidden');
+          repeatBanner.className = 'mb-5 p-4 rounded-xl border border-emerald-500/40 bg-emerald-950/40 text-emerald-200';
+          repeatBanner.innerHTML = `
+            <div class="flex items-start space-x-3">
+              <i class="fa-solid fa-circle-check text-emerald-400 text-2xl mt-0.5"></i>
+              <div>
+                <h4 class="font-bold text-emerald-300 text-base">¡Registro Guardado Exitosamente con Datos Verificados!</h4>
+                <p class="text-xs mt-1 text-slate-200">
+                  Cliente: <b class="text-white">${data.nombre_apellido}</b> • Cédula: <b class="text-indigo-300">${data.documento_numero}</b> • País: <b class="text-emerald-300">${data.pais_nacionalidad}</b>.<br>
+                  Total de veces registrado en el sistema: <b class="text-emerald-300 text-sm">${data.times_registered}</b>.
+                </p>
+                <button type="button" onclick="quickCheckClient('${data.documento_numero}', '${data.nombre_apellido}')" class="mt-2 text-xs font-semibold underline text-indigo-300 hover:text-indigo-100 flex items-center space-x-1">
+                  <span>Consultar historial de este cliente</span>
+                  <i class="fa-solid fa-arrow-right"></i>
+                </button>
+              </div>
+            </div>
+          `;
+          btnManualConfirm.innerHTML = '<i class="fa-solid fa-check-double text-base"></i><span>¡Guardado con Éxito!</span>';
           loadStats();
+          loadRecords();
         } else {
           alert('Error: ' + data.error);
+          btnManualConfirm.disabled = false;
+          btnManualConfirm.innerHTML = '<i class="fa-solid fa-circle-check text-lg"></i><span>2. Confirmar y Registrar en la Base de Datos</span>';
         }
       } catch (e) {
-        alert('Error al confirmar guardado.');
+        console.error(e);
+        alert('Error al confirmar guardado en el servidor.');
+        btnManualConfirm.disabled = false;
+        btnManualConfirm.innerHTML = '<i class="fa-solid fa-circle-check text-lg"></i><span>2. Confirmar y Registrar en la Base de Datos</span>';
       }
     });
   }
