@@ -29,7 +29,8 @@ NON_NAME_WORDS = {
     "SEXO", "LUGAR", "NACIONALIDAD", "TITULAR", "FIRMA", "SIGNATURE", "DATE", "BIRTH",
     "VALIDO", "HASTA", "CODIGO", "CÓDIGO", "DONANTE", "ORGANOS", "ÓRGANOS", "CLASE", "CATEGORIA", "CATEGORÍA", "NUMERO", "NÚMERO",
     "CIUDADANO", "CIUDADANA", "DELEGACION", "DELEGACIÓN", "SECCION", "SECCIÓN", "SERIE", "FOTO", "FOLIO",
-    "CURP", "RUT", "RUN", "MERCOSUR", "CONSULAR", "POLICIA", "POLICÍA"
+    "CURP", "RUT", "RUN", "MERCOSUR", "CONSULAR", "POLICIA", "POLICÍA", "DOMICILIO", "DIRECCION",
+    "VIGENCIA", "CLAVE", "ELECTOR", "DISTRITO", "MUNICIPIO", "LOCALIDAD", "CREDENCIAL", "VOTAR", "ESTUDIANTE"
 }
 
 # Country & Nationality mapping patterns
@@ -41,7 +42,7 @@ COUNTRY_PATTERNS = [
     ("Perú", [r'\bPERU\b', r'\bPERÚ\b', r'\bPERUAN[AO]\b', r'P<PER']),
     ("Uruguay", [r'\bURUGUAY\b', r'\bURUGUAY[AO]\b', r'\bORIENTAL\b', r'P<URY']),
     ("Ecuador", [r'\bECUADOR\b', r'\bECUATORIAN[AO]\b', r'P<ECU']),
-    ("México", [r'\bMEXICO\b', r'\bMÉXICO\b', r'\bMEXICAN[AO]\b', r'\bESTADOS UNIDOS MEXICANOS\b', r'P<MEX']),
+    ("México", [r'\bMEXICO\b', r'\bMÉXICO\b', r'\bMEXICAN[AO]\b', r'\bESTADOS UNIDOS MEXICANOS\b', r'\bINSTITUTO NACIONAL ELECTORAL\b', r'\bCREDENCIAL PARA VOTAR\b', r'P<MEX']),
     ("Bolivia", [r'\bBOLIVIA\b', r'\bBOLIVIAN[AO]\b', r'\bPLURINACIONAL\b', r'P<BOL']),
     ("Paraguay", [r'\bPARAGUAY\b', r'\bPARAGUAY[AO]\b', r'P<PRY']),
     ("España", [r'\bESPA[ÑN]A\b', r'\bESPA[ÑN]OL[A]?\b', r'\bREINO DE ESPA[ÑN]A\b', r'P<ESP']),
@@ -184,86 +185,134 @@ def extract_document_number(text):
 def clean_name_tokens(text):
     """Cleans punctuation and stopwords from candidate name string."""
     clean = re.sub(r'[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]', ' ', text)
-    words = [w for w in clean.split() if w.upper() not in NON_NAME_WORDS and len(w) >= 2]
+    words = [w for w in clean.split() if w.upper() not in NON_NAME_WORDS and (len(w) >= 2 or w.upper() == 'Y')]
     return " ".join(words)
 
 def extract_name_and_surname(text):
     """
-    Extracts name and surname using multi-strategy parser:
-    1. Passport MRZ (ICAO 9303)
-    2. Multi-line and same-line label detection (APELLIDOS, NOMBRES, PRENOMBRES, SURNAME)
-    3. Combined label detection (APELLIDOS Y NOMBRES)
-    4. Heuristic candidate line analysis
+    Extracts name and surname using an advanced multi-strategy parser:
+    1. Machine Readable Zone (MRZ for Passports TD3, and National IDs TD1 / TD2)
+    2. Single-line detection containing both Apellidos and Nombres
+    3. Multi-line and dual surname detection (APELLIDOS, 1er/2do APELLIDO, PRENOMBRES, SURNAME)
+    4. Mexican INE / IFE multi-line structure
+    5. Combined label detection (APELLIDOS Y NOMBRES)
+    6. Heuristic candidate line analysis
     """
     text_up = text.upper()
     lines = [l.strip() for l in text.splitlines() if l.strip()]
 
-    # 1. Passport MRZ format (e.g. P<URYPEREZ<<JUAN<CARLOS)
-    mrz_match = re.search(r'P<[A-Z]{3}([A-Z]+)<<([A-Z<]+)', text_up)
-    if mrz_match:
-        surname_mrz = mrz_match.group(1).replace("<", " ").strip()
-        names_mrz = mrz_match.group(2).replace("<", " ").strip()
-        full = f"{names_mrz} {surname_mrz}".title()
-        return " ".join(full.split())
+    # 1. MRZ (Passports and modern Latin American IDs TD1/TD2)
+    for line in lines:
+        line_clean = line.replace(" ", "")
+        if "<<" in line_clean and "<" in line_clean:
+            cleaned_mrz = re.sub(r'^[A-Z0-9<]{5}', '', line_clean) if (line_clean.startswith("P<") or line_clean.startswith("ID") or line_clean.startswith("I<")) else line_clean
+            parts = cleaned_mrz.split("<<")
+            if len(parts) >= 2:
+                surnames = parts[0].replace("<", " ").strip()
+                names = parts[1].replace("<", " ").strip()
+                surnames_clean = clean_name_tokens(surnames)
+                names_clean = clean_name_tokens(names)
+                if surnames_clean and names_clean:
+                    return f"{names_clean} {surnames_clean}".title()
 
-    # 2. Line-by-line label scanner
+    # 2. Check for single line containing BOTH Apellidos and Nombres
+    for line in lines:
+        m_inline1 = re.search(r'(?:APELLIDO\w*|SURNAME)[\s:]+(.*?)(?:NOMBRES?|GIVEN|FORENAME)[\s:]+(.*)', line, re.IGNORECASE)
+        if m_inline1:
+            ape = clean_name_tokens(m_inline1.group(1))
+            nom = clean_name_tokens(m_inline1.group(2))
+            if ape and nom:
+                return f"{nom} {ape}".title()
+
+        m_inline2 = re.search(r'(?:NOMBRES?|GIVEN|FORENAME)[\s:]+(.*?)(?:APELLIDO\w*|SURNAME)[\s:]+(.*)', line, re.IGNORECASE)
+        if m_inline2:
+            nom = clean_name_tokens(m_inline2.group(1))
+            ape = clean_name_tokens(m_inline2.group(2))
+            if ape and nom:
+                return f"{nom} {ape}".title()
+
+    # Helper to find next non-empty, non-label line
+    def find_next_valid_line(start_idx):
+        for offset in range(1, 4):
+            if start_idx + offset < len(lines):
+                candidate = lines[start_idx + offset].strip()
+                candidate_up = candidate.upper()
+                if any(lbl in candidate_up for lbl in ["NOMBRE", "APELLIDO", "SEXO", "FECHA", "CEDULA", "NACIONALIDAD", "FIRMA", "ESTADO", "LUGAR", "VENCIMIENTO"]):
+                    return ""
+                cleaned = clean_name_tokens(candidate)
+                if cleaned:
+                    return cleaned
+        return ""
+
+    # 3. Mexican INE format: Single line 'NOMBRE' followed by 3 lines (Paterno, Materno, Nombres)
+    for idx, line in enumerate(lines):
+        if line.strip().upper() in ["NOMBRE", "NOMBRE:", "NOMBRE / NAME"]:
+            sub_lines = []
+            for off in range(1, 4):
+                if idx + off < len(lines):
+                    nxt = lines[idx + off].strip()
+                    if not any(k in nxt.upper() for k in ["EDAD", "SEXO", "DOMICILIO", "CLAVE", "CURP", "FECHA", "REGISTRO", "NACIONALIDAD"]):
+                        toks = clean_name_tokens(nxt)
+                        if toks:
+                            sub_lines.append(toks)
+            if len(sub_lines) == 3:
+                return f"{sub_lines[2]} {sub_lines[0]} {sub_lines[1]}".title()
+            elif len(sub_lines) == 2:
+                return f"{sub_lines[1]} {sub_lines[0]}".title()
+
+    # 4. Multi-line Label Scanning
     apellidos_found = []
     nombres_found = []
-
-    label_ape_pattern = re.compile(
-        r'^(?:(?:PRIMER|SEGUNDO)\s+)?(?:APELLIDOS?|APELLIDO\s+PATERNO|APELLIDO\s+MATERNO|SURNAME|SURNAMES|LAST\s*NAME)(?:\s*[/]\s*(?:SURNAME|SURNAMES))?[\s:]*(.*)$',
-        re.IGNORECASE
-    )
-    label_nom_pattern = re.compile(
-        r'^(?:PRENOMBRES?|NOMBRES?|NOMBRE\s+DE\s+PILA|GIVEN\s*NAMES?|FIRST\s*NAME)(?:\s*[/]\s*(?:GIVEN\s*NAMES?|FORENAMES?))?[\s:]*(.*)$',
-        re.IGNORECASE
-    )
-    label_combo_pattern = re.compile(
-        r'^(?:APELLIDOS?\s+Y\s+NOMBRES?|NOMBRES?\s+Y\s+APELLIDOS?|NOMBRE\s+COMPLETO|FULL\s+NAME)[\s:]*(.*)$',
-        re.IGNORECASE
-    )
-
     combo_found = ""
 
+    re_ape_label = re.compile(
+        r'(?:^|[\s_\|\-\*\.\:0-9])(?:(?:1ER\.?|2DO\.?|PRIMER|SEGUNDO)\s+)?(?:APELLIDOS?|APELLIDO\s*\(\s*S\s*\)|APELLIDO\s+PATERNO|APELLIDO\s+MATERNO|SURNAME|SURNAMES|LAST\s*NAME)(?:[\s/]+(?:SURNAME|SURNAMES))?[\s:]*(.*)$',
+        re.IGNORECASE
+    )
+    re_nom_label = re.compile(
+        r'(?:^|[\s_\|\-\*\.\:0-9])(?:PRENOMBRES?|NOMBRES?|NOMBRE\s*\(\s*S\s*\)|NOMBRE\s+DE\s+PILA|GIVEN\s*NAMES?|FIRST\s*NAME)(?:[\s/]+(?:GIVEN\s*NAMES?|FORENAMES?))?[\s:]*(.*)$',
+        re.IGNORECASE
+    )
+    re_combo_label = re.compile(
+        r'(?:^|[\s_\|\-\*\.\:0-9])(?:APELLIDOS?\s+Y\s+NOMBRES?|NOMBRES?\s+Y\s+APELLIDOS?|NOMBRE\s+COMPLETO|FULL\s+NAME)[\s:]*(.*)$',
+        re.IGNORECASE
+    )
+
     for idx, line in enumerate(lines):
-        line_clean = line.strip()
-        
-        # Check combined label
-        m_combo = label_combo_pattern.match(line_clean)
-        if m_combo:
-            inline = clean_name_tokens(m_combo.group(1))
+        # Combo (Apellidos y Nombres)
+        m_c = re_combo_label.search(line)
+        if m_c:
+            inline = clean_name_tokens(m_c.group(1))
             if inline:
                 combo_found = inline
-            elif idx + 1 < len(lines):
-                combo_found = clean_name_tokens(lines[idx + 1])
+            else:
+                next_l = find_next_valid_line(idx)
+                if next_l:
+                    combo_found = next_l
             continue
 
-        # Check Apellidos
-        m_ape = label_ape_pattern.match(line_clean)
-        if m_ape:
-            inline_val = clean_name_tokens(m_ape.group(1))
-            if inline_val:
-                apellidos_found.append(inline_val)
-            elif idx + 1 < len(lines):
-                next_raw = lines[idx + 1]
-                if not any(k in next_raw.upper() for k in ["NOMBRE", "SEXO", "FECHA", "CEDULA", "NACIONALIDAD", "FIRMA"]):
-                    next_val = clean_name_tokens(next_raw)
-                    if next_val:
-                        apellidos_found.append(next_val)
+        # Apellidos
+        m_a = re_ape_label.search(line)
+        if m_a:
+            inline = clean_name_tokens(m_a.group(1))
+            if inline:
+                apellidos_found.append(inline)
+            else:
+                next_l = find_next_valid_line(idx)
+                if next_l:
+                    apellidos_found.append(next_l)
             continue
 
-        # Check Nombres
-        m_nom = label_nom_pattern.match(line_clean)
-        if m_nom:
-            inline_val = clean_name_tokens(m_nom.group(1))
-            if inline_val:
-                nombres_found.append(inline_val)
-            elif idx + 1 < len(lines):
-                next_raw = lines[idx + 1]
-                if not any(k in next_raw.upper() for k in ["APELLIDO", "SEXO", "FECHA", "CEDULA", "NACIONALIDAD", "FIRMA"]):
-                    next_val = clean_name_tokens(next_raw)
-                    if next_val:
-                        nombres_found.append(next_val)
+        # Nombres
+        m_n = re_nom_label.search(line)
+        if m_n:
+            inline = clean_name_tokens(m_n.group(1))
+            if inline:
+                nombres_found.append(inline)
+            else:
+                next_l = find_next_valid_line(idx)
+                if next_l:
+                    nombres_found.append(next_l)
             continue
 
     if nombres_found or apellidos_found:
@@ -279,13 +328,12 @@ def extract_name_and_surname(text):
     if combo_found:
         return combo_found.title()
 
-    # 3. Fallback Heuristic: Scan lines without numbers or stop words
+    # 5. Fallback: Search for cleanest 2-4 word line
     for line in lines:
         cleaned = clean_name_tokens(line)
         words = cleaned.split()
-        if 2 <= len(words) <= 4:
-            if not any(c.isdigit() for c in line):
-                return cleaned.title()
+        if 2 <= len(words) <= 4 and not any(c.isdigit() for c in line):
+            return cleaned.title()
 
     return ""
 
