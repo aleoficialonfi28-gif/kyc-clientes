@@ -236,6 +236,7 @@ def scan_and_upload():
     tipo_doc = tipo_doc_override or ocr_result.get("tipo_documento") or "Cédula de Identidad"
     doc_num = ocr_result.get("documento_numero", "").strip()
     nombre = ocr_result.get("nombre_apellido", "").strip()
+    pais = request.form.get("pais_nacionalidad", "").strip() or ocr_result.get("pais_nacionalidad", "Desconocido").strip()
     raw_ocr = ocr_result.get("raw_text", "")
 
     # Exact upload timestamp (format: YYYY-MM-DD HH:MM:SS)
@@ -255,6 +256,7 @@ def scan_and_upload():
             documento_numero=doc_num if doc_num else "S/N",
             nombre_apellido=nombre if nombre else "DESCONOCIDO",
             tipo_documento=tipo_doc,
+            pais_nacionalidad=pais,
             fecha_hora=fecha_hora_str,
             file_url=cloud_result["file_url"],
             file_name=cloud_result["file_name"],
@@ -274,6 +276,7 @@ def scan_and_upload():
         "record_id": record_id,
         "documento_numero": doc_num,
         "nombre_apellido": nombre,
+        "pais_nacionalidad": pais,
         "tipo_documento": tipo_doc,
         "fecha_hora": fecha_hora_str,
         "file_url": cloud_result["file_url"],
@@ -293,6 +296,7 @@ def confirm_save():
     data = request.json or {}
     doc_num = data.get("documento_numero", "").strip()
     nombre = data.get("nombre_apellido", "").strip()
+    pais = data.get("pais_nacionalidad", "Desconocido").strip()
     tipo_doc = data.get("tipo_documento", "Cédula de Identidad").strip()
     file_url = data.get("file_url", "").strip()
     file_name = data.get("file_name", "").strip()
@@ -314,6 +318,7 @@ def confirm_save():
         documento_numero=doc_num if doc_num else "S/N",
         nombre_apellido=nombre if nombre else "DESCONOCIDO",
         tipo_documento=tipo_doc,
+        pais_nacionalidad=pais,
         fecha_hora=fecha_hora_str,
         file_url=file_url,
         file_name=file_name,
@@ -332,6 +337,7 @@ def confirm_save():
         "record_id": record_id,
         "documento_numero": doc_num,
         "nombre_apellido": nombre,
+        "pais_nacionalidad": pais,
         "fecha_hora": fecha_hora_str,
         "times_registered": total_times,
         "is_repeat": total_times > 1
@@ -464,6 +470,7 @@ def export_excel():
         "id": "ID",
         "documento_numero": "Cédula / Documento",
         "nombre_apellido": "Nombre y Apellido",
+        "pais_nacionalidad": "País / Nacionalidad",
         "tipo_documento": "Tipo de Documento",
         "fecha_hora": "Fecha y Hora de Subida",
         "file_url": "Enlace del Documento (Nube)",
