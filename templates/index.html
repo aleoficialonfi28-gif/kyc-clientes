@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KYC CLIENTES - Verificación y Registro en la Nube</title>
+  <!-- Google Fonts & Tailwind CDN -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              900: '#312e81',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased selection:bg-indigo-500 selection:text-white">
+
+  <!-- Top Navigation Bar -->
+  <nav class="border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+          <i class="fa-solid fa-id-card text-white text-lg"></i>
+        </div>
+        <div>
+          <span class="text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-100 to-indigo-300 bg-clip-text text-transparent">
+            KYC CLIENTES
+          </span>
+          <span class="text-xs ml-2 px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-medium">Cloud OCR</span>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-2 sm:space-x-3">
+        <!-- Share Link Button -->
+        <button id="btn-share-link" class="text-xs bg-indigo-600/90 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg font-medium transition flex items-center space-x-1.5 shadow-sm shadow-indigo-600/30">
+          <i class="fa-solid fa-share-nodes"></i>
+          <span class="hidden sm:inline">Compartir Link</span>
+        </button>
+
+        {% if is_owner %}
+        <!-- Cloud Config Button (Only Propietario) -->
+        <button id="btn-cloud-config" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-lg border border-slate-700 transition flex items-center space-x-1.5">
+          <i class="fa-solid fa-cloud text-indigo-400"></i>
+          <span id="nav-cloud-badge">Nube: Local</span>
+        </button>
+        {% endif %}
+
+        <!-- Excel Export Button -->
+        <a href="/api/export/excel" class="text-xs bg-emerald-600/90 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg font-medium transition flex items-center space-x-1.5 shadow-sm shadow-emerald-700/30">
+          <i class="fa-solid fa-file-excel"></i>
+          <span class="hidden sm:inline">Exportar</span>
+        </a>
+
+        <!-- User Profile & Logout -->
+        <div class="flex items-center pl-2 border-l border-slate-800 space-x-2">
+          <div class="hidden md:block text-right">
+            <p class="text-xs font-bold text-white truncate max-w-[140px]">{{ session.get('full_name', 'Usuario') }}</p>
+            <p class="text-[10px] uppercase tracking-wider font-semibold {% if is_owner %}text-amber-400 font-bold{% else %}text-indigo-400{% endif %}">
+              {% if is_owner %}<i class="fa-solid fa-crown mr-0.5"></i>{% endif %}{{ session.get('role', 'Operador') }}
+            </p>
+          </div>
+          <div class="w-8 h-8 rounded-lg {% if is_owner %}bg-amber-500/20 text-amber-300 border border-amber-500/40{% else %}bg-indigo-500/20 text-indigo-300 border border-indigo-500/30{% endif %} flex items-center justify-center text-xs font-bold">
+            {% if is_owner %}
+              <i class="fa-solid fa-crown text-[11px]"></i>
+            {% else %}
+              {{ (session.get('username', 'U')[0])|upper }}
+            {% endif %}
+          </div>
+          <a href="/logout" title="Cerrar Sesión" class="text-slate-400 hover:text-rose-400 p-2 text-sm transition">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- KPI Summary Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-5 backdrop-blur flex items-center justify-between">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Documentos</p>
+          <h3 id="stat-total-records" class="text-3xl font-extrabold text-white mt-1">0</h3>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center border border-indigo-500/20 text-xl">
+          <i class="fa-solid fa-folder-open"></i>
+        </div>
+      </div>
+
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-5 backdrop-blur flex items-center justify-between">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Clientes Únicos</p>
+          <h3 id="stat-unique-clients" class="text-3xl font-extrabold text-emerald-400 mt-1">0</h3>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20 text-xl">
+          <i class="fa-solid fa-users"></i>
+        </div>
+      </div>
+
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-5 backdrop-blur flex items-center justify-between">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Registros Recurrentes</p>
+          <h3 id="stat-duplicates" class="text-3xl font-extrabold text-amber-400 mt-1">0</h3>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20 text-xl">
+          <i class="fa-solid fa-repeat"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="flex border-b border-slate-800 mb-6 space-x-2 sm:space-x-4 overflow-x-auto pb-1">
+      <button class="tab-btn active px-4 py-3 text-sm font-semibold border-b-2 border-indigo-500 text-indigo-400 flex items-center space-x-2 whitespace-nowrap" data-tab="tab-upload">
+        <i class="fa-solid fa-cloud-arrow-up"></i>
+        <span>1. Subir Cédula / Pasaporte</span>
+      </button>
+
+      <button class="tab-btn px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-2 whitespace-nowrap" data-tab="tab-search">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <span>2. Consultar Cédula y Frecuencia</span>
+      </button>
+
+      <button class="tab-btn px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-2 whitespace-nowrap" data-tab="tab-records">
+        <i class="fa-solid fa-list-check"></i>
+        <span>3. Historial de Clientes</span>
+      </button>
+
+      <button class="tab-btn px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-2 whitespace-nowrap" data-tab="tab-users">
+        <i class="fa-solid fa-users-gear"></i>
+        <span>4. Usuarios y Accesos</span>
+      </button>
+    </div>
+
+    <!-- TAB 1: UPLOAD & AUTOMATIC OCR EXTRACTION -->
+    <div id="tab-upload" class="tab-content block">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <!-- Left: Upload Box -->
+        <div class="lg:col-span-6 space-y-6">
+          <div class="bg-slate-800/50 border border-slate-700/80 rounded-2xl p-6">
+            <h2 class="text-lg font-bold text-white mb-2 flex items-center space-x-2">
+              <i class="fa-solid fa-file-arrow-up text-indigo-400"></i>
+              <span>Cargar Documento de Identidad</span>
+            </h2>
+            <p class="text-xs text-slate-400 mb-4">
+              Suba una foto o escaneo de la Cédula o Pasaporte (JPG, PNG, PDF). El sistema extraerá automáticamente el <b>número</b>, <b>nombre y apellido</b>, y registrará la <b>fecha y hora exacta</b>.
+            </p>
+
+            <!-- Drag & Drop Zone -->
+            <div id="drop-zone" class="border-2 border-dashed border-slate-600 hover:border-indigo-500 rounded-2xl p-8 text-center bg-slate-900/40 hover:bg-slate-900/80 transition cursor-pointer relative group">
+              <input type="file" id="file-input" class="hidden" accept="image/*,application/pdf">
+              
+              <div id="drop-idle" class="space-y-3">
+                <div class="w-16 h-16 mx-auto rounded-full bg-indigo-500/10 group-hover:bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-2xl transition">
+                  <i class="fa-solid fa-cloud-arrow-up"></i>
+                </div>
+                <p class="text-sm font-medium text-slate-200">
+                  Arrastra aquí la cédula o <span class="text-indigo-400 underline">haz clic para examinar</span>
+                </p>
+                <p class="text-xs text-slate-400">Archivos permitidos: JPG, PNG, WEBP, PDF (hasta 32MB)</p>
+              </div>
+
+              <!-- Uploading / Processing state -->
+              <div id="drop-processing" class="hidden space-y-3 py-4">
+                <div class="w-12 h-12 mx-auto border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                <p id="processing-text" class="text-sm font-medium text-indigo-300">Subiendo a la nube y leyendo datos con OCR...</p>
+              </div>
+
+              <!-- Preview State -->
+              <div id="drop-preview" class="hidden space-y-3">
+                <img id="img-preview" src="" alt="Vista previa" class="max-h-60 mx-auto rounded-lg shadow-md border border-slate-700 object-contain">
+                <div id="pdf-preview-box" class="hidden py-8">
+                  <i class="fa-solid fa-file-pdf text-rose-400 text-5xl"></i>
+                  <p id="pdf-preview-name" class="text-xs text-slate-300 mt-2 font-medium"></p>
+                </div>
+                <button type="button" id="btn-change-file" class="text-xs text-rose-400 hover:text-rose-300 underline font-medium">
+                  Cambiar documento
+                </button>
+              </div>
+            </div>
+
+            <!-- Optional Extra Fields -->
+            <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Tipo de Documento</label>
+                <select id="input-tipo-doc" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
+                  <option value="">Auto-detectar con OCR</option>
+                  <option value="Cédula de Identidad">Cédula de Identidad</option>
+                  <option value="Pasaporte">Pasaporte</option>
+                  <option value="DNI">DNI</option>
+                  <option value="Licencia de Conducir">Licencia de Conducir</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Notas / Observaciones</label>
+                <input type="text" id="input-notas" placeholder="Ej: Sucursal Centro, Trámite Crédito..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
+              </div>
+            </div>
+
+            <div class="mt-5 flex items-center justify-between">
+              <label class="flex items-center space-x-2 text-xs text-slate-300 cursor-pointer">
+                <input type="checkbox" id="check-auto-save" checked class="rounded bg-slate-900 border-slate-700 text-indigo-600 focus:ring-indigo-500">
+                <span>Registrar en base de datos automáticamente al subir</span>
+              </label>
+
+              <button type="button" id="btn-process-upload" class="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl font-semibold text-sm shadow-md shadow-indigo-600/30 transition flex items-center space-x-2">
+                <i class="fa-solid fa-bolt"></i>
+                <span>Procesar y Guardar</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Extracted Data & Registration Status -->
+        <div class="lg:col-span-6 space-y-6">
+          <div class="bg-slate-800/50 border border-slate-700/80 rounded-2xl p-6 relative">
+            <h2 class="text-lg font-bold text-white mb-2 flex items-center space-x-2">
+              <i class="fa-solid fa-circle-check text-emerald-400"></i>
+              <span>Datos Extraídos Automáticamente</span>
+            </h2>
+            <p class="text-xs text-slate-400 mb-4">
+              Resultados de la lectura inteligente de la cédula y estado de subida a la nube.
+            </p>
+
+            <!-- Alert: Times Registered Banner -->
+            <div id="repeat-banner" class="hidden mb-5 p-4 rounded-xl border">
+              <!-- Dynamically populated via JS -->
+            </div>
+
+            <!-- Form fields with detected values -->
+            <div class="space-y-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-300 mb-1">
+                    <i class="fa-solid fa-id-card text-indigo-400 mr-1"></i> Número de Cédula / Documento
+                  </label>
+                  <input type="text" id="res-cedula" placeholder="Ej: 12.345.678" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-base font-bold text-indigo-300 focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-300 mb-1">
+                    <i class="fa-solid fa-passport text-indigo-400 mr-1"></i> Tipo Identificado
+                  </label>
+                  <input type="text" id="res-tipo" readonly class="w-full bg-slate-900/60 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-300">
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">
+                  <i class="fa-solid fa-user text-indigo-400 mr-1"></i> Nombre y Apellido
+                </label>
+                <input type="text" id="res-nombre" placeholder="Nombre completo extraído" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-base font-bold text-white focus:outline-none focus:border-indigo-500">
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-300 mb-1">
+                    <i class="fa-regular fa-clock text-indigo-400 mr-1"></i> Fecha y Hora de Subida
+                  </label>
+                  <input type="text" id="res-fecha-hora" readonly class="w-full bg-slate-900/60 border border-slate-800 rounded-lg px-3 py-2 text-sm text-emerald-400 font-mono">
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-300 mb-1">
+                    <i class="fa-solid fa-cloud-arrow-up text-indigo-400 mr-1"></i> Almacenamiento Nube
+                  </label>
+                  <div class="flex items-center space-x-2">
+                    <input type="text" id="res-provider" readonly class="w-28 bg-slate-900/60 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-300">
+                    <a id="res-cloud-link" href="#" target="_blank" class="hidden flex-1 text-xs bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 rounded-lg px-3 py-2 text-center font-medium transition truncate">
+                      Ver en Nube <i class="fa-solid fa-arrow-up-right-from-square ml-1"></i>
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Raw OCR View Toggle -->
+              <div>
+                <details class="text-xs text-slate-400 bg-slate-900/40 rounded-lg p-3 border border-slate-800">
+                  <summary class="cursor-pointer font-medium text-slate-300 hover:text-white">
+                    <i class="fa-solid fa-file-lines mr-1"></i> Ver texto en bruto detectado por OCR
+                  </summary>
+                  <pre id="res-raw-ocr" class="mt-2 text-slate-300 whitespace-pre-wrap font-mono text-[11px] bg-slate-950 p-2 rounded max-h-36 overflow-y-auto"></pre>
+                </details>
+              </div>
+
+              <!-- Button to manual confirm or update -->
+              <div id="box-confirm-update" class="hidden pt-2">
+                <button type="button" id="btn-manual-confirm" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 rounded-xl shadow-md shadow-emerald-700/30 transition flex items-center justify-center space-x-2">
+                  <i class="fa-solid fa-floppy-disk"></i>
+                  <span>Confirmar y Guardar Registro</span>
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- TAB 2: CONSULTAR CLIENTE Y FRECUENCIA DE REGISTRO (REQUISITO CLAVE) -->
+    <div id="tab-search" class="tab-content hidden">
+      <div class="max-w-4xl mx-auto space-y-6">
+        
+        <div class="bg-slate-800/50 border border-slate-700/80 rounded-2xl p-6 sm:p-8">
+          <div class="text-center max-w-xl mx-auto mb-6">
+            <div class="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center text-xl mx-auto mb-3 border border-indigo-500/20">
+              <i class="fa-solid fa-address-book"></i>
+            </div>
+            <h2 class="text-xl font-bold text-white">Consultor de Clientes y Frecuencia</h2>
+            <p class="text-xs text-slate-400 mt-1">
+              Ingrese el <b>número de cédula</b> y/o <b>nombre</b> para conocer instantáneamente cuántas veces ha sido registrado este documento y ver su historial de subidas.
+            </p>
+          </div>
+
+          <form id="form-check-client" class="grid grid-cols-1 sm:grid-cols-12 gap-4">
+            <div class="sm:col-span-5">
+              <label class="block text-xs font-semibold text-slate-300 mb-1">
+                <i class="fa-solid fa-id-card text-indigo-400 mr-1"></i> Número de Cédula / Documento
+              </label>
+              <input type="text" id="search-cedula" placeholder="Ej: 12345678" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 text-sm font-semibold">
+            </div>
+
+            <div class="sm:col-span-5">
+              <label class="block text-xs font-semibold text-slate-300 mb-1">
+                <i class="fa-solid fa-user text-indigo-400 mr-1"></i> Nombre y/o Apellido
+              </label>
+              <input type="text" id="search-nombre" placeholder="Ej: Juan Pérez" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 text-sm font-semibold">
+            </div>
+
+            <div class="sm:col-span-2 flex items-end">
+              <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-xl shadow-lg shadow-indigo-600/30 transition flex items-center justify-center space-x-2 text-sm">
+                <i class="fa-solid fa-search"></i>
+                <span>Consultar</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Query Result Panel -->
+        <div id="search-results-panel" class="hidden space-y-6">
+          
+          <!-- Frequency Highlight Card -->
+          <div id="frequency-hero-card" class="rounded-2xl p-6 border flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div class="flex items-center space-x-4">
+              <div id="frequency-icon-box" class="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl font-black">
+                <!-- Icon via JS -->
+              </div>
+              <div>
+                <span id="frequency-tag" class="text-xs uppercase px-2.5 py-1 rounded-full font-bold tracking-wider"></span>
+                <h3 id="frequency-title" class="text-2xl font-black text-white mt-1"></h3>
+                <p id="frequency-subtitle" class="text-xs text-slate-300 mt-1"></p>
+              </div>
+            </div>
+
+            <div class="text-center sm:text-right bg-slate-950/40 px-6 py-4 rounded-xl border border-slate-800">
+              <p class="text-xs text-slate-400 uppercase font-semibold">Veces Registrado</p>
+              <div id="frequency-number" class="text-4xl font-extrabold mt-0.5">0</div>
+            </div>
+          </div>
+
+          <!-- History Table for this specific client -->
+          <div class="bg-slate-800/50 border border-slate-700/80 rounded-2xl p-6">
+            <h4 class="text-sm font-bold text-white mb-4 flex items-center space-x-2">
+              <i class="fa-solid fa-timeline text-indigo-400"></i>
+              <span>Historial de Subidas de este Documento</span>
+            </h4>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-sm">
+                <thead>
+                  <tr class="border-b border-slate-700 text-xs text-slate-400 uppercase">
+                    <th class="pb-3 font-semibold">#</th>
+                    <th class="pb-3 font-semibold">Fecha y Hora</th>
+                    <th class="pb-3 font-semibold">Tipo Documento</th>
+                    <th class="pb-3 font-semibold">Nombre Registrado</th>
+                    <th class="pb-3 font-semibold">Subido Por</th>
+                    <th class="pb-3 font-semibold">Nube</th>
+                    <th class="pb-3 font-semibold text-right">Documento</th>
+                  </tr>
+                </thead>
+                <tbody id="client-history-rows" class="divide-y divide-slate-800">
+                  <!-- JS generated rows -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- TAB 3: ALL RECORDS & MANAGEMENT -->
+    <div id="tab-records" class="tab-content hidden">
+      <div class="bg-slate-800/50 border border-slate-700/80 rounded-2xl p-6">
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+              <i class="fa-solid fa-database text-indigo-400"></i>
+              <span>Registro General de Documentos KYC</span>
+            </h2>
+            <p class="text-xs text-slate-400">
+              Lista cronológica de todas las cédulas y pasaportes subidos.
+              {% if is_owner %}
+                <span class="text-amber-400 font-semibold ml-1">(Como Propietario puedes eliminar registros).</span>
+              {% endif %}
+            </p>
+          </div>
+
+          <div class="flex items-center space-x-3 w-full sm:w-auto">
+            <div class="relative flex-1 sm:w-64">
+              <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
+              <input type="text" id="table-filter-input" placeholder="Filtrar por cédula o nombre..." class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-8 pr-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+            </div>
+
+            <button id="btn-refresh-table" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-2 rounded-lg text-xs font-semibold transition" title="Refrescar">
+              <i class="fa-solid fa-arrows-rotate"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Records Table -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead>
+              <tr class="border-b border-slate-700 text-xs text-slate-400 uppercase">
+                <th class="pb-3 font-semibold">ID</th>
+                <th class="pb-3 font-semibold">Cédula / Documento</th>
+                <th class="pb-3 font-semibold">Nombre y Apellido</th>
+                <th class="pb-3 font-semibold">Tipo</th>
+                <th class="pb-3 font-semibold">Fecha y Hora de Subida</th>
+                <th class="pb-3 font-semibold">Registrado Por</th>
+                <th class="pb-3 font-semibold">Almacenamiento</th>
+                <th class="pb-3 font-semibold text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="all-records-tbody" class="divide-y divide-slate-800 font-normal">
+              <tr>
+                <td colspan="8" class="text-center py-8 text-slate-500">Cargando registros...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: USERS & ACCESS MANAGEMENT -->
+    <div id="tab-users" class="tab-content hidden">
+      <div class="space-y-6">
+        
+        <div class="bg-slate-800/50 border border-slate-700/80 rounded-2xl p-6">
+          <div class="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
+            <div>
+              <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+                <i class="fa-solid fa-users text-indigo-400"></i>
+                <span>Gestión de Usuarios Autorizados</span>
+              </h2>
+              <p class="text-xs text-slate-400">
+                Usuarios con permiso para iniciar sesión y subir documentos.
+                {% if is_owner %}
+                  <span class="text-amber-400 font-semibold ml-1">(Como Propietario puedes eliminar usuarios).</span>
+                {% endif %}
+              </p>
+            </div>
+
+            {% if is_owner %}
+            <button id="btn-open-create-user" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-4 py-2 rounded-xl font-semibold transition flex items-center space-x-1.5 shadow-md shadow-indigo-600/30">
+              <i class="fa-solid fa-user-plus"></i>
+              <span>Crear Nuevo Usuario</span>
+            </button>
+            {% endif %}
+          </div>
+
+          <!-- Users Table -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+              <thead>
+                <tr class="border-b border-slate-700 text-xs text-slate-400 uppercase">
+                  <th class="pb-3 font-semibold">ID</th>
+                  <th class="pb-3 font-semibold">Usuario</th>
+                  <th class="pb-3 font-semibold">Nombre Completo</th>
+                  <th class="pb-3 font-semibold">Rol</th>
+                  <th class="pb-3 font-semibold">Último Acceso</th>
+                  <th class="pb-3 font-semibold">Estado</th>
+                  {% if is_owner %}
+                  <th class="pb-3 font-semibold text-right">Acción</th>
+                  {% endif %}
+                </tr>
+              </thead>
+              <tbody id="users-tbody" class="divide-y divide-slate-800">
+                <!-- JS populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Predefined credentials reference box -->
+        <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
+          <h3 class="text-sm font-bold text-white mb-3 flex items-center space-x-2">
+            <i class="fa-solid fa-key text-indigo-400"></i>
+            <span>Credenciales Asignadas</span>
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-slate-950 p-4 rounded-xl border border-amber-500/30 bg-amber-950/10">
+              <span class="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30 flex items-center w-fit">
+                <i class="fa-solid fa-crown mr-1"></i> Propietario (Tú)
+              </span>
+              <p class="text-xs font-bold text-white mt-2">Usuario: <span class="text-amber-300 font-mono">admin</span></p>
+              <p class="text-xs text-slate-300">Contraseña: <span class="text-amber-300 font-mono">Admin2026*</span></p>
+              <p class="text-[11px] text-amber-300/80 mt-1">Control total y eliminación de datos/usuarios.</p>
+            </div>
+            
+            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+              <span class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">Operador KYC</span>
+              <p class="text-xs font-bold text-white mt-2">Usuario: <span class="text-emerald-300 font-mono">mmursuli</span></p>
+              <p class="text-xs text-slate-300">Contraseña: <span class="text-emerald-300 font-mono">Manuel2026*</span></p>
+              <p class="text-[11px] text-slate-400 mt-1">Manuel Mursuli (Subida y consulta de cédulas).</p>
+            </div>
+            
+            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+              <span class="text-[10px] font-bold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">Operador KYC</span>
+              <p class="text-xs font-bold text-white mt-2">Usuario: <span class="text-sky-300 font-mono">ibavo</span></p>
+              <p class="text-xs text-slate-300">Contraseña: <span class="text-sky-300 font-mono">Iosef2026*</span></p>
+              <p class="text-[11px] text-slate-400 mt-1">Iosef Bavo (Subida y consulta de cédulas).</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- SHARE LINK MODAL -->
+  <div id="modal-share" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-base font-bold text-white flex items-center space-x-2">
+          <i class="fa-solid fa-share-nodes text-indigo-400"></i>
+          <span>Compartir Link de Acceso</span>
+        </h3>
+        <button id="btn-close-share" class="text-slate-400 hover:text-white text-xl">&times;</button>
+      </div>
+
+      <p class="text-xs text-slate-300 leading-relaxed">
+        Comparte este enlace para que <b>Manuel Mursuli</b> y <b>Iosef Bavo</b> puedan ingresar a <b>KYC CLIENTES</b> desde su computadora, tablet o teléfono celular en la misma red Wi-Fi o red local:
+      </p>
+
+      <!-- Network Link box -->
+      <div class="space-y-1.5">
+        <label class="block text-xs font-semibold text-slate-300">
+          <i class="fa-solid fa-wifi text-emerald-400 mr-1"></i> Enlace de Red Wi-Fi / LAN (Para Manuel y Iosef)
+        </label>
+        <div class="flex items-center bg-slate-950 rounded-xl border border-slate-700 p-2">
+          <input type="text" id="modal-network-url" readonly value="{{ network_url }}" class="bg-transparent text-xs text-emerald-300 font-mono flex-1 focus:outline-none px-2">
+          <button type="button" onclick="copyNetworkUrl()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition flex items-center space-x-1">
+            <i class="fa-solid fa-copy"></i>
+            <span id="copy-network-btn-text">Copiar</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Localhost box -->
+      <div class="space-y-1.5">
+        <label class="block text-xs font-semibold text-slate-300">
+          <i class="fa-solid fa-desktop text-indigo-400 mr-1"></i> Enlace Local (Para este mismo equipo)
+        </label>
+        <div class="flex items-center bg-slate-950 rounded-xl border border-slate-800 p-2">
+          <input type="text" id="modal-local-url" readonly value="http://localhost:5000/login" class="bg-transparent text-xs text-slate-300 font-mono flex-1 focus:outline-none px-2">
+          <button type="button" onclick="copyLocalUrl()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-3 py-1.5 rounded-lg font-medium transition">
+            Copiar
+          </button>
+        </div>
+      </div>
+
+      <!-- QR Code representation -->
+      <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 text-center flex flex-col items-center justify-center">
+        <p class="text-xs text-slate-400 mb-2 font-medium">Escanear código QR desde el celular:</p>
+        <img id="qr-code-img" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={{ network_url | urlencode }}&color=63-102-241&bgcolor=15-23-42" alt="QR Link" class="w-36 h-36 rounded-xl border border-slate-700 p-1 bg-slate-900 shadow">
+        <p class="text-[11px] text-slate-400 mt-2">Pueden apuntar la cámara del celular al código QR para ingresar directamente.</p>
+      </div>
+
+      <div class="pt-2 flex justify-end">
+        <button type="button" id="btn-dismiss-share" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold px-4 py-2 rounded-xl transition">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CREATE USER MODAL (ONLY PROPIETARIO) -->
+  <div id="modal-create-user" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-base font-bold text-white flex items-center space-x-2">
+          <i class="fa-solid fa-user-plus text-indigo-400"></i>
+          <span>Registrar Nuevo Operador</span>
+        </h3>
+        <button id="btn-close-create-user" class="text-slate-400 hover:text-white text-xl">&times;</button>
+      </div>
+
+      <form id="form-create-user" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Nombre Completo</label>
+          <input type="text" id="new-fullname" required placeholder="Ej: Roberto Pérez" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Nombre de Usuario (Login)</label>
+          <input type="text" id="new-username" required placeholder="Ej: rperez" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Rol</label>
+          <select id="new-role" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+            <option value="Operador KYC">Operador KYC (Subir y consultar cédulas)</option>
+            <option value="Auditor">Auditor (Solo consultas y reportes)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Contraseña</label>
+          <input type="password" id="new-password" required placeholder="••••••••" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+        </div>
+
+        <div id="create-user-status" class="text-xs p-2 rounded hidden font-medium"></div>
+
+        <div class="flex items-center justify-end space-x-2 pt-3">
+          <button type="button" id="btn-cancel-create-user" class="px-3 py-2 text-xs text-slate-400 hover:text-white">Cancelar</button>
+          <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-4 py-2 rounded-xl font-semibold shadow-md transition">Guardar Usuario</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- CLOUD CONFIG MODAL -->
+  <div id="modal-cloud" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-base font-bold text-white flex items-center space-x-2">
+          <i class="fa-solid fa-cloud text-indigo-400"></i>
+          <span>Configuración de Almacenamiento en la Nube</span>
+        </h3>
+        <button id="btn-close-modal" class="text-slate-400 hover:text-white text-lg">&times;</button>
+      </div>
+
+      <p class="text-xs text-slate-400">
+        Los archivos se guardan por defecto en almacenamiento local servido. Puede habilitar subida directa a <b>Cloudinary</b> o <b>AWS S3 / Supabase</b> introduciendo sus credenciales.
+      </p>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Proveedor de Nube Activo</label>
+          <select id="config-provider" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+            <option value="local">Modo Local Servido (Sin credenciales externas)</option>
+            <option value="cloudinary">Cloudinary (Recomendado para imágenes y documentos)</option>
+            <option value="s3">AWS S3 / Supabase / Cloudflare R2</option>
+          </select>
+        </div>
+
+        <!-- Cloudinary settings -->
+        <div id="box-cloudinary-fields" class="space-y-3 hidden bg-slate-950/50 p-4 rounded-xl border border-slate-800">
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Cloud Name</label>
+            <input type="text" id="cfg-c-name" placeholder="Ej: micuenta" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">API Key</label>
+            <input type="text" id="cfg-c-key" placeholder="Ej: 123456789012345" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">API Secret</label>
+            <input type="password" id="cfg-c-secret" placeholder="••••••••••••••••" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+          </div>
+        </div>
+
+        <!-- S3 settings -->
+        <div id="box-s3-fields" class="space-y-3 hidden bg-slate-950/50 p-4 rounded-xl border border-slate-800">
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">S3 Bucket Name</label>
+            <input type="text" id="cfg-s3-bucket" placeholder="Ej: mi-bucket-kyc" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Access Key ID</label>
+              <input type="text" id="cfg-s3-key" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Region</label>
+              <input type="text" id="cfg-s3-region" value="us-east-1" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Secret Access Key</label>
+            <input type="password" id="cfg-s3-secret" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+          </div>
+        </div>
+
+        <div id="cloud-test-status" class="text-xs p-2 rounded hidden font-medium"></div>
+
+        <div class="flex items-center justify-end space-x-3 pt-3">
+          <button type="button" id="btn-cancel-modal" class="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white">Cancelar</button>
+          <button type="button" id="btn-save-cloud" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-md transition">Guardar Configuración</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DOCUMENT VIEWER MODAL -->
+  <div id="modal-viewer" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-3xl w-full p-4 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 id="viewer-title" class="text-sm font-bold text-white truncate">Vista del Documento</h3>
+        <button id="btn-close-viewer" class="text-slate-400 hover:text-white text-xl">&times;</button>
+      </div>
+      <div class="flex items-center justify-center max-h-[75vh] overflow-auto rounded-lg bg-slate-950 p-2">
+        <img id="viewer-img" src="" alt="Documento" class="max-h-[70vh] object-contain rounded">
+        <iframe id="viewer-frame" src="" class="hidden w-full h-[70vh] rounded border-0"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
