@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const repeatBanner = document.getElementById('repeat-banner');
   const resCedula = document.getElementById('res-cedula');
   const resNombre = document.getElementById('res-nombre');
+  const resPais = document.getElementById('res-pais');
   const resTipo = document.getElementById('res-tipo');
   const resFechaHora = document.getElementById('res-fecha-hora');
   const resProvider = document.getElementById('res-provider');
@@ -259,6 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderExtractedData(data) {
     resCedula.value = data.documento_numero || '';
     resNombre.value = data.nombre_apellido || '';
+    if (resPais) resPais.value = data.pais_nacionalidad || 'Desconocido';
     resTipo.value = data.tipo_documento || 'Cédula de Identidad';
     resFechaHora.value = data.fecha_hora || '';
     resProvider.value = (data.cloud_provider || 'local').toUpperCase();
@@ -318,6 +320,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const payload = {
         documento_numero: resCedula.value.trim(),
         nombre_apellido: resNombre.value.trim(),
+        pais_nacionalidad: resPais ? resPais.value.trim() : 'Desconocido',
         tipo_documento: resTipo.value.trim(),
         file_url: lastUploadedData.file_url,
         file_name: lastUploadedData.file_name,
@@ -396,7 +399,7 @@ document.addEventListener('DOMContentLoaded', () => {
       frequencyTag.textContent = 'NO REGISTRADO';
       frequencyTitle.textContent = 'Sin Registros Previos';
       frequencySubtitle.textContent = `No se encontraron registros para la cédula "${data.search_cedula}" o nombre "${data.search_nombre}".`;
-      clientHistoryRows.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-slate-500">No hay documentos cargados para este criterio.</td></tr>`;
+      clientHistoryRows.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-slate-500">No hay documentos cargados para este criterio.</td></tr>`;
       return;
     }
 
@@ -426,6 +429,9 @@ document.addEventListener('DOMContentLoaded', () => {
         </td>
         <td class="py-3 text-xs text-slate-300">${rec.tipo_documento || 'Cédula'}</td>
         <td class="py-3 text-xs font-semibold text-white">${rec.nombre_apellido}</td>
+        <td class="py-3 text-xs font-semibold text-emerald-400">
+          <i class="fa-solid fa-earth-americas text-[10px] mr-1"></i>${rec.pais_nacionalidad || 'Desconocido'}
+        </td>
         <td class="py-3 text-xs text-slate-400">
           <span class="font-mono text-[11px]"><i class="fa-solid fa-user-circle mr-1"></i>${rec.uploaded_by || 'admin'}</span>
         </td>
@@ -451,7 +457,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       
       if (!data.success || !data.records.length) {
-        allRecordsTbody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-500">No se encontraron registros.</td></tr>`;
+        allRecordsTbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-slate-500">No se encontraron registros.</td></tr>`;
         return;
       }
 
@@ -462,6 +468,9 @@ document.addEventListener('DOMContentLoaded', () => {
           <td class="py-3 font-mono text-xs text-slate-400">${rec.id}</td>
           <td class="py-3 font-bold text-indigo-300 text-xs">${rec.documento_numero}</td>
           <td class="py-3 text-xs font-semibold text-white">${rec.nombre_apellido}</td>
+          <td class="py-3 text-xs font-semibold text-emerald-400">
+            <i class="fa-solid fa-earth-americas text-[10px] mr-1"></i>${rec.pais_nacionalidad || 'Desconocido'}
+          </td>
           <td class="py-3 text-xs text-slate-300">${rec.tipo_documento}</td>
           <td class="py-3 font-mono text-xs text-slate-200">
             <i class="fa-regular fa-clock text-slate-400 mr-1"></i> ${rec.fecha_hora}
@@ -489,7 +498,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     } catch (e) {
       console.error(e);
-      allRecordsTbody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-rose-400">Error cargando registros.</td></tr>`;
+      allRecordsTbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-rose-400">Error cargando registros.</td></tr>`;
     }
   }
 
