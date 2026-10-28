@@ -5,14 +5,16 @@ import datetime
 from functools import wraps
 from flask import Flask, render_template, request, jsonify, send_file, send_from_directory, redirect, url_for, session
 from werkzeug.utils import secure_filename
-import pandas as pd
 
 from database import (
     init_db, save_record, delete_record, count_records, search_records, get_stats, 
     set_setting, get_setting, verify_user, create_user, delete_user, get_all_users
 )
 from ocr_engine import process_identity_document
-from cloud_storage import upload_file_to_cloud, get_cloud_config, test_cloud_connection, UPLOAD_DIR
+from cloud_storage import (
+    upload_file_to_cloud, get_cloud_config, test_cloud_connection, 
+    create_full_backup_zip, upload_backup_to_gdrive, DEFAULT_GDRIVE_EMAIL, UPLOAD_DIR
+)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'kyc_clientes_security_secret_2026_x89a')
@@ -26,30 +28,43 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'bmp', 'pdf'}
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+_CACHED_LOCAL_IP = None
 def get_local_ip():
-    """Returns local network IPv4 address for sharing link."""
+    """Returns local network IPv4 address for sharing link (cached for high speed)."""
+    global _CACHED_LOCAL_IP
+    if _CACHED_LOCAL_IP:
+        return _CACHED_LOCAL_IP
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(0.5)
         s.connect(('8.8.8.8', 80))
         ip = s.getsockname()[0]
         s.close()
+        _CACHED_LOCAL_IP = ip
         return ip
     except Exception:
-        return '127.0.0.1'
+        _CACHED_LOCAL_IP = '127.0.0.1'
+        return _CACHED_LOCAL_IP
 
+_CACHED_PUBLIC_URL = None
 def get_public_url():
-    """Returns public HTTPS tunnel URL if active."""
+    """Returns public HTTPS tunnel URL if active (cached for high speed)."""
+    global _CACHED_PUBLIC_URL
+    if _CACHED_PUBLIC_URL:
+        return _CACHED_PUBLIC_URL
     public_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public_url.txt")
     if os.path.exists(public_file):
         try:
             with open(public_file, "r", encoding="utf-8") as f:
                 url = f.read().strip()
                 if url.startswith("https://"):
+                    _CACHED_PUBLIC_URL = url
                     return url
         except Exception:
             pass
     db_url = get_setting("public_tunnel_url", "")
     if db_url and db_url.startswith("https://"):
+        _CACHED_PUBLIC_URL = db_url
         return db_url
     return None
 
@@ -78,13 +93,6 @@ def owner_required(f):
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    port = int(os.environ.get('PORT', 5000))
-    local_ip = get_local_ip()
-    local_network_url = f"http://{local_ip}:{port}/login"
-    public_base = get_public_url()
-    public_url = f"{public_base}/login" if public_base else None
-    share_url = public_url if public_url else local_network_url
-
     if 'user_id' in session:
         return redirect(url_for('index'))
 
@@ -105,7 +113,7 @@ def login():
         else:
             error = "Usuario o contraseña incorrectos. Verifique sus credenciales autorizadas."
 
-    return render_template('login.html', error=error, network_url=share_url, public_url=public_url, local_network_url=local_network_url)
+    return render_template('login.html', error=error)
 
 @app.route('/logout')
 def logout():
@@ -407,7 +415,28 @@ def save_cloud_configuration():
     data = request.json or {}
     provider = data.get("provider", "local")
     
-    if provider == "cloudinary":
+    if provider == "gdrive":
+        email = data.get("email", DEFAULT_GDRIVE_EMAIL).strip() or DEFAULT_GDRIVE_EMAIL
+        token = data.get("token", "").strip()
+        folder_id = data.get("folder_id", "").strip()
+        
+        ok, msg = test_cloud_connection("gdrive", {
+            "email": email,
+            "token": token,
+            "folder_id": folder_id
+        })
+        if not ok:
+            return jsonify({"success": False, "error": msg}), 400
+            
+        set_setting("cloud_provider", "gdrive")
+        set_setting("gdrive_account_email", email)
+        if token:
+            set_setting("gdrive_access_token", token)
+        if folder_id:
+            set_setting("gdrive_folder_id", folder_id)
+        return jsonify({"success": True, "message": f"Google Drive vinculado a {email} exitosamente."})
+        
+    elif provider == "cloudinary":
         c_name = data.get("cloud_name", "").strip()
         c_key = data.get("api_key", "").strip()
         c_secret = data.get("api_secret", "").strip()
@@ -458,9 +487,29 @@ def save_cloud_configuration():
         set_setting("cloud_provider", "local")
         return jsonify({"success": True, "message": "Modo de almacenamiento local activado."})
 
+@app.route('/api/backup/download', methods=['GET'])
+@login_required
+def download_backup():
+    """Generates and downloads full system backup ZIP (Database + Docs + Excel)."""
+    backup_path, backup_filename = create_full_backup_zip()
+    return send_file(
+        backup_path,
+        as_attachment=True,
+        download_name=backup_filename,
+        mimetype="application/zip"
+    )
+
+@app.route('/api/backup/gdrive', methods=['POST'])
+@login_required
+def backup_gdrive():
+    """Executes backup sync for contabilidadalejandro3@gmail.com."""
+    result = upload_backup_to_gdrive()
+    return jsonify(result)
+
 @app.route('/api/export/excel', methods=['GET'])
 @login_required
 def export_excel():
+    import pandas as pd
     records = search_records(query="", limit=10000)
     if not records:
         return "No hay registros para exportar.", 400
