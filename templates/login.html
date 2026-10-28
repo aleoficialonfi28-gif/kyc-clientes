@@ -4,137 +4,354 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Acceso al Sistema - KYC CLIENTES</title>
-  <!-- Google Fonts & Tailwind CDN -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- FontAwesome Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-          }
-        }
-      }
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
     }
-  </script>
+    body {
+      background-color: #0b0f19;
+      color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      position: relative;
+    }
+    ::selection {
+      background: #4f46e5;
+      color: #ffffff;
+    }
+    .ambient-glow {
+      position: fixed;
+      top: -150px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 650px;
+      height: 450px;
+      background: radial-gradient(circle, rgba(79, 70, 229, 0.12) 0%, rgba(15, 23, 42, 0) 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    header {
+      padding: 32px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      z-index: 10;
+    }
+    .brand-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      color: #818cf8;
+    }
+    .brand-title {
+      font-size: 19px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+    .brand-sub {
+      font-size: 11px;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 500;
+      display: block;
+    }
+    main {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px 20px;
+      position: relative;
+      z-index: 10;
+    }
+    .login-container {
+      max-width: 420px;
+      width: 100%;
+    }
+    .login-card {
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid rgba(51, 65, 85, 0.65);
+      border-radius: 20px;
+      padding: 34px 30px;
+      box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(12px);
+    }
+    .card-header {
+      text-align: center;
+      margin-bottom: 26px;
+    }
+    .card-header h1 {
+      font-size: 21px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+    }
+    .card-header p {
+      font-size: 12.5px;
+      color: #94a3b8;
+      margin-top: 6px;
+    }
+    .error-alert {
+      margin-bottom: 20px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: rgba(244, 63, 94, 0.12);
+      border: 1px solid rgba(244, 63, 94, 0.28);
+      color: #fda4af;
+      font-size: 12.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .form-group {
+      margin-bottom: 18px;
+    }
+    .form-label-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin-bottom: 6px;
+    }
+    .toggle-pwd-btn {
+      background: none;
+      border: none;
+      color: #64748b;
+      font-size: 11px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: color 0.15s ease;
+      padding: 2px 4px;
+    }
+    .toggle-pwd-btn:hover {
+      color: #cbd5e1;
+    }
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .input-icon {
+      position: absolute;
+      left: 13px;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    .input-field {
+      width: 100%;
+      background: #070b13;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 11px 14px 11px 40px;
+      font-size: 13.5px;
+      color: #ffffff;
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+      font-family: inherit;
+    }
+    .input-field::placeholder {
+      color: #475569;
+    }
+    .input-field:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+    }
+    .btn-submit {
+      width: 100%;
+      background: #4f46e5;
+      color: #ffffff;
+      border: none;
+      border-radius: 12px;
+      padding: 11px 18px;
+      font-size: 13.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background 0.15s ease, transform 0.05s ease;
+      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+      margin-top: 8px;
+    }
+    .btn-submit:hover {
+      background: #4338ca;
+    }
+    .btn-submit:active {
+      transform: scale(0.99);
+    }
+    .security-notice {
+      text-align: center;
+      margin-top: 22px;
+      font-size: 11px;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    footer {
+      padding: 18px 20px;
+      text-align: center;
+      font-size: 11.5px;
+      color: #475569;
+      border-top: 1px solid rgba(30, 41, 59, 0.5);
+      position: relative;
+      z-index: 10;
+    }
+  </style>
 </head>
-<body class="bg-[#0b0f19] text-slate-100 min-h-screen font-sans antialiased flex flex-col justify-between selection:bg-indigo-600 selection:text-white relative">
+<body>
 
-  <!-- Subtle corporate ambient backdrop -->
-  <div class="fixed inset-0 pointer-events-none overflow-hidden">
-    <div class="absolute -top-[25%] left-1/2 -translate-x-1/2 w-[700px] h-[500px] bg-gradient-to-b from-indigo-950/20 to-transparent rounded-full blur-3xl"></div>
-  </div>
+  <!-- Ambient Glow -->
+  <div class="ambient-glow"></div>
 
-  <!-- Minimal corporate header -->
-  <header class="py-8 px-6 max-w-6xl mx-auto w-full flex items-center justify-center relative z-10">
-    <div class="flex items-center space-x-3">
-      <div class="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center shadow-md">
-        <i class="fa-solid fa-shield-halved text-indigo-400 text-lg"></i>
+  <!-- Header -->
+  <header>
+    <div class="brand-box">
+      <div class="brand-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
       </div>
       <div>
-        <span class="text-xl font-bold tracking-tight text-white block leading-tight">
-          KYC CLIENTES
-        </span>
-        <span class="text-[11px] text-slate-400 tracking-wider uppercase font-medium">Plataforma de Cumplimiento & Identidad</span>
+        <span class="brand-title">KYC CLIENTES</span>
+        <span class="brand-sub">Plataforma de Cumplimiento & Identidad</span>
       </div>
     </div>
   </header>
 
-  <!-- Centered Login Box -->
-  <main class="flex-1 flex items-center justify-center px-4 py-8 relative z-10">
-    <div class="max-w-[420px] w-full">
-
-      <!-- Formal Auth Card -->
-      <div class="bg-slate-900/90 border border-slate-800/90 rounded-2xl p-8 sm:p-9 shadow-2xl backdrop-blur-md">
+  <!-- Login Main -->
+  <main>
+    <div class="login-container">
+      <div class="login-card">
         
-        <div class="text-center mb-7">
-          <h1 class="text-xl font-bold text-white tracking-tight">Iniciar Sesión</h1>
-          <p class="text-xs text-slate-400 mt-1.5">Introduzca sus credenciales para acceder a la plataforma</p>
+        <div class="card-header">
+          <h1>Iniciar Sesión</h1>
+          <p>Introduzca sus credenciales para acceder a la plataforma</p>
         </div>
 
         {% if error %}
-        <div class="mb-5 p-3 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-300 text-xs flex items-center space-x-2.5">
-          <i class="fa-solid fa-circle-exclamation text-rose-400 text-sm flex-shrink-0"></i>
+        <div class="error-alert">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
           <span>{{ error }}</span>
         </div>
         {% endif %}
 
-        <form action="/login" method="POST" class="space-y-4">
-          <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1.5" for="username">
-              Usuario
-            </label>
-            <div class="relative">
-              <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-xs">
-                <i class="fa-regular fa-user"></i>
+        <form action="/login" method="POST">
+          <div class="form-group">
+            <label for="username">Usuario</label>
+            <div class="input-wrapper">
+              <span class="input-icon">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
               </span>
               <input type="text" id="username" name="username" required autocomplete="username"
-                     placeholder="Nombre de usuario"
-                     class="w-full bg-[#070b13] border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/40 transition">
+                     placeholder="Nombre de usuario" class="input-field" autofocus>
             </div>
           </div>
 
-          <div>
-            <div class="flex items-center justify-between mb-1.5">
-              <label class="block text-xs font-semibold text-slate-300" for="password">
-                Contraseña
-              </label>
-              <button type="button" id="toggle-pwd" class="text-slate-500 hover:text-slate-300 text-[11px] transition">
-                <i class="fa-regular fa-eye mr-1"></i>Mostrar
+          <div class="form-group">
+            <div class="form-label-row">
+              <label for="password" style="margin-bottom:0;">Contraseña</label>
+              <button type="button" id="toggle-pwd" class="toggle-pwd-btn">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                <span id="toggle-pwd-text">Mostrar</span>
               </button>
             </div>
-            <div class="relative">
-              <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-xs">
-                <i class="fa-solid fa-lock text-[11px]"></i>
+            <div class="input-wrapper">
+              <span class="input-icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
               </span>
               <input type="password" id="password" name="password" required autocomplete="current-password"
-                     placeholder="••••••••••••"
-                     class="w-full bg-[#070b13] border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/40 transition">
+                     placeholder="••••••••••••" class="input-field">
             </div>
           </div>
 
-          <div class="pt-2">
-            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-semibold py-2.5 px-4 rounded-xl shadow-md transition text-sm flex items-center justify-center space-x-2">
-              <i class="fa-solid fa-arrow-right-to-bracket text-xs"></i>
-              <span>Ingresar al Sistema</span>
-            </button>
-          </div>
+          <button type="submit" class="btn-submit">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+              <polyline points="10 17 15 12 10 7"/>
+              <line x1="15" y1="12" x2="3" y2="12"/>
+            </svg>
+            <span>Ingresar al Sistema</span>
+          </button>
         </form>
 
       </div>
 
-      <!-- Security Notice -->
-      <div class="text-center mt-6">
-        <p class="text-[11px] text-slate-500 flex items-center justify-center space-x-1.5">
-          <i class="fa-solid fa-lock text-[10px]"></i>
-          <span>Conexión cifrada de punto a punto &bull; Acceso restringido</span>
-        </p>
+      <div class="security-notice">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        <span>Conexión cifrada de punto a punto &bull; Acceso restringido</span>
       </div>
-
     </div>
   </main>
 
-  <!-- Minimal Formal Footer -->
-  <footer class="py-5 text-center text-xs text-slate-600 border-t border-slate-900/60 relative z-10">
+  <!-- Footer -->
+  <footer>
     <p>KYC CLIENTES &copy; 2026 &bull; Todos los derechos reservados</p>
   </footer>
 
   <script>
     const toggleBtn = document.getElementById('toggle-pwd');
     const pwdInput = document.getElementById('password');
+    const toggleText = document.getElementById('toggle-pwd-text');
     if (toggleBtn && pwdInput) {
       toggleBtn.addEventListener('click', () => {
         if (pwdInput.type === 'password') {
           pwdInput.type = 'text';
-          toggleBtn.innerHTML = '<i class="fa-regular fa-eye-slash mr-1"></i>Ocultar';
+          toggleText.textContent = 'Ocultar';
         } else {
           pwdInput.type = 'password';
-          toggleBtn.innerHTML = '<i class="fa-regular fa-eye mr-1"></i>Mostrar';
+          toggleText.textContent = 'Mostrar';
         }
       });
     }
