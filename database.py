@@ -6,8 +6,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kyc_database.db")
 
 def get_connection():
-    conn = sqlite3.connect(DB_FILE)
+    conn = sqlite3.connect(DB_FILE, timeout=20.0)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode = WAL;")
+    conn.execute("PRAGMA synchronous = NORMAL;")
     return conn
 
 # Configuración de los 3 usuarios del sistema:
@@ -75,6 +77,7 @@ def init_db():
             value TEXT
         )
     """)
+    cursor.execute("INSERT OR IGNORE INTO kyc_settings (key, value) VALUES ('gdrive_account_email', 'contabilidadalejandro3@gmail.com')")
     
     # Users table
     cursor.execute("""
@@ -94,9 +97,9 @@ def init_db():
     for u in DEFAULT_USERS:
         cursor.execute("SELECT id, role FROM kyc_users WHERE LOWER(username) = ?", (u["username"].lower(),))
         existing = cursor.fetchone()
-        pwd_hash = generate_password_hash(u["password"])
         
         if not existing:
+            pwd_hash = generate_password_hash(u["password"])
             cursor.execute("""
                 INSERT INTO kyc_users (username, password_hash, full_name, role)
                 VALUES (?, ?, ?, ?)
