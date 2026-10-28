@@ -62,9 +62,15 @@
         <!-- Cloud Config Button (Only Propietario) -->
         <button id="btn-cloud-config" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-lg border border-slate-700 transition flex items-center space-x-1.5">
           <i class="fa-solid fa-cloud text-indigo-400"></i>
-          <span id="nav-cloud-badge">Nube: Local</span>
+          <span id="nav-cloud-badge">Nube: Google Drive</span>
         </button>
         {% endif %}
+
+        <!-- Google Drive Backup Button -->
+        <button id="btn-backup-gdrive" class="text-xs bg-amber-600/90 hover:bg-amber-500 text-white px-3 py-2 rounded-lg font-medium transition flex items-center space-x-1.5 shadow-sm shadow-amber-600/30" title="Respaldo Google Drive (contabilidadalejandro3@gmail.com)">
+          <i class="fa-brands fa-google-drive"></i>
+          <span class="hidden sm:inline">Google Drive</span>
+        </button>
 
         <!-- Excel Export Button -->
         <a href="/api/export/excel" class="text-xs bg-emerald-600/90 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg font-medium transition flex items-center space-x-1.5 shadow-sm shadow-emerald-700/30">
@@ -717,10 +723,44 @@
         <div>
           <label class="block text-xs font-semibold text-slate-300 mb-1">Proveedor de Nube Activo</label>
           <select id="config-provider" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+            <option value="gdrive" selected>Google Drive (contabilidadalejandro3@gmail.com)</option>
             <option value="local">Modo Local Servido (Sin credenciales externas)</option>
             <option value="cloudinary">Cloudinary (Recomendado para imágenes y documentos)</option>
             <option value="s3">AWS S3 / Supabase / Cloudflare R2</option>
           </select>
+        </div>
+
+        <!-- Google Drive settings -->
+        <div id="box-gdrive-fields" class="space-y-3 bg-slate-950/60 p-4 rounded-xl border border-amber-500/30">
+          <div class="flex items-center space-x-2 text-xs text-amber-300 bg-amber-500/10 p-2.5 rounded-lg border border-amber-500/20">
+            <i class="fa-brands fa-google-drive text-base text-amber-400 flex-shrink-0"></i>
+            <div>
+              <p class="font-bold">Cuenta vinculada a Google Drive:</p>
+              <p class="font-mono text-amber-200">contabilidadalejandro3@gmail.com</p>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Correo Electrónico de Google</label>
+            <input type="email" id="cfg-gd-email" value="contabilidadalejandro3@gmail.com" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-mono">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">ID Carpeta Google Drive (Opcional)</label>
+            <input type="text" id="cfg-gd-folder" placeholder="Ej: 1A2b3C4d5E... (dejar vacío para carpeta raíz)" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Token de Acceso API / OAuth (Opcional)</label>
+            <input type="password" id="cfg-gd-token" placeholder="Bearer Token para subida automática en tiempo real" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
+          </div>
+          <div class="pt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button type="button" id="btn-trigger-gdrive-backup" class="bg-amber-600 hover:bg-amber-500 text-white px-3 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition shadow">
+              <i class="fa-solid fa-cloud-arrow-up"></i>
+              <span>Respaldar en Google Drive</span>
+            </button>
+            <a href="/api/backup/download" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition border border-slate-700 text-center">
+              <i class="fa-solid fa-file-zipper text-indigo-400"></i>
+              <span>Descargar Respaldo ZIP</span>
+            </a>
+          </div>
         </div>
 
         <!-- Cloudinary settings -->
@@ -785,7 +825,7 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script src="/static/js/app.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script defer src="/static/js/app.js"></script>
 </body>
 </html>
