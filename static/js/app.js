@@ -73,11 +73,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Elements - Cloud Modal
   const btnCloudConfig = document.getElementById('btn-cloud-config');
+  const btnBackupGdrive = document.getElementById('btn-backup-gdrive');
+  const btnTriggerGdriveBackup = document.getElementById('btn-trigger-gdrive-backup');
   const modalCloud = document.getElementById('modal-cloud');
   const btnCloseModal = document.getElementById('btn-close-modal');
   const btnCancelModal = document.getElementById('btn-cancel-modal');
   const btnSaveCloud = document.getElementById('btn-save-cloud');
   const configProvider = document.getElementById('config-provider');
+  const boxGdrive = document.getElementById('box-gdrive-fields');
   const boxCloudinary = document.getElementById('box-cloudinary-fields');
   const boxS3 = document.getElementById('box-s3-fields');
   const cloudTestStatus = document.getElementById('cloud-test-status');
@@ -798,17 +801,74 @@ document.addEventListener('DOMContentLoaded', () => {
   btnCloseModal.addEventListener('click', () => modalCloud.classList.add('hidden'));
   btnCancelModal.addEventListener('click', () => modalCloud.classList.add('hidden'));
 
+  // Google Drive Backup trigger
+  async function triggerGoogleDriveBackup() {
+    if (!confirm('¿Desea crear un paquete de respaldo completo de la base de datos y documentos para Google Drive (contabilidadalejandro3@gmail.com)?')) {
+      return;
+    }
+
+    if (btnBackupGdrive) {
+      btnBackupGdrive.disabled = true;
+      btnBackupGdrive.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Respaldando...';
+    }
+    if (btnTriggerGdriveBackup) {
+      btnTriggerGdriveBackup.disabled = true;
+      btnTriggerGdriveBackup.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
+    }
+
+    try {
+      const res = await fetch('/api/backup/gdrive', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        let msg = `✅ Respaldo generado con éxito.\nCuenta: contabilidadalejandro3@gmail.com\nArchivo: ${data.filename}`;
+        if (data.drive_url) {
+          msg += `\nEnlace en Google Drive: ${data.drive_url}`;
+        }
+        alert(msg);
+        // Start automatic local download of backup ZIP
+        window.location.href = '/api/backup/download';
+      } else {
+        alert('Aviso de respaldo: ' + (data.error || 'Ocurrió un error.'));
+      }
+    } catch (err) {
+      alert('Error de conexión al generar el respaldo de Google Drive.');
+    } finally {
+      if (btnBackupGdrive) {
+        btnBackupGdrive.disabled = false;
+        btnBackupGdrive.innerHTML = '<i class="fa-brands fa-google-drive"></i> <span class="hidden sm:inline">Google Drive</span>';
+      }
+      if (btnTriggerGdriveBackup) {
+        btnTriggerGdriveBackup.disabled = false;
+        btnTriggerGdriveBackup.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> <span>Respaldar en Google Drive</span>';
+      }
+    }
+  }
+
+  if (btnBackupGdrive) {
+    btnBackupGdrive.addEventListener('click', triggerGoogleDriveBackup);
+  }
+  if (btnTriggerGdriveBackup) {
+    btnTriggerGdriveBackup.addEventListener('click', triggerGoogleDriveBackup);
+  }
+
   configProvider.addEventListener('change', () => {
     const val = configProvider.value;
-    if (val === 'cloudinary') {
-      boxCloudinary.classList.remove('hidden');
-      boxS3.classList.add('hidden');
+    if (val === 'gdrive') {
+      if (boxGdrive) boxGdrive.classList.remove('hidden');
+      if (boxCloudinary) boxCloudinary.classList.add('hidden');
+      if (boxS3) boxS3.classList.add('hidden');
+    } else if (val === 'cloudinary') {
+      if (boxGdrive) boxGdrive.classList.add('hidden');
+      if (boxCloudinary) boxCloudinary.classList.remove('hidden');
+      if (boxS3) boxS3.classList.add('hidden');
     } else if (val === 's3') {
-      boxCloudinary.classList.add('hidden');
-      boxS3.classList.remove('hidden');
+      if (boxGdrive) boxGdrive.classList.add('hidden');
+      if (boxCloudinary) boxCloudinary.classList.add('hidden');
+      if (boxS3) boxS3.classList.remove('hidden');
     } else {
-      boxCloudinary.classList.add('hidden');
-      boxS3.classList.add('hidden');
+      if (boxGdrive) boxGdrive.classList.add('hidden');
+      if (boxCloudinary) boxCloudinary.classList.add('hidden');
+      if (boxS3) boxS3.classList.add('hidden');
     }
   });
 
@@ -816,7 +876,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const prov = configProvider.value;
     let payload = { provider: prov };
 
-    if (prov === 'cloudinary') {
+    if (prov === 'gdrive') {
+      payload.email = document.getElementById('cfg-gd-email').value.trim() || 'contabilidadalejandro3@gmail.com';
+      payload.folder_id = document.getElementById('cfg-gd-folder').value.trim();
+      payload.token = document.getElementById('cfg-gd-token').value.trim();
+    } else if (prov === 'cloudinary') {
       payload.cloud_name = document.getElementById('cfg-c-name').value.trim();
       payload.api_key = document.getElementById('cfg-c-key').value.trim();
       payload.api_secret = document.getElementById('cfg-c-secret').value.trim();
